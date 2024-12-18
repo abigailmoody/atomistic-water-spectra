@@ -1,4 +1,4 @@
-# Last updated: 12/17/24
+# Last updated: 12/18/24
 
 # standard lib imports
 import argparse
@@ -292,36 +292,36 @@ class Universe:
             
             if 'ham' in self.calc_types:
                 frame_arr = np.array([frames[t]], dtype='float32')
-                ham_flat = np.empty((int(self.nstretch * (self.nstretch + 1) / 2)), dtype='float32')
+                ham_flat = np.empty((int(self.nosc * (self.nosc + 1) / 2)), dtype='float32')
                 temp = 0
-                for i in range(self.nstretch):
-                    for j in range(i, self.nstretch):
+                for i in range(self.nosc):
+                    for j in range(i, self.nosc):
                         ham_flat[temp] = ham[i, j]
                         temp += 1
                 frame_arr.tofile(files['ham'])
                 ham_flat.tofile(files['ham'])
             
             if 'dip' in self.calc_types:
-                dip_flat = np.empty((self.nstretch * 3), dtype='float32')
+                dip_flat = np.empty((self.nosc * 3), dtype='float32')
                 for i in range(3):
-                    for j in range(self.nstretch):
-                        dip_flat[i * self.nstretch + j] = dip[j,i]
+                    for j in range(self.nosc):
+                        dip_flat[i * self.nosc + j] = dip[j,i]
                 frame_arr.tofile(files['dip'])
                 dip_flat.tofile(files['dip'])
             
             if 'sfg' in self.calc_types:
-                sfg_flat = np.empty((self.nstretch * 3), dtype='float32')
+                sfg_flat = np.empty((self.nosc * 3), dtype='float32')
                 for i in range(3):
-                    for j in range(self.nstretch):
-                        sfg_flat[i * self.nstretch + j] = sfg[j,i]
+                    for j in range(self.nosc):
+                        sfg_flat[i * self.nosc + j] = sfg[j,i]
                 frame_arr.tofile(files['sfg'])
                 sfg_flat.tofile(files['sfg'])
             
             if 'ram' in self.calc_types:
-                ram_flat = np.empty((self.nstretch * 6), dtype='float32')
+                ram_flat = np.empty((self.nosc * 6), dtype='float32')
                 for i in range(6):
-                    for j in range(self.nstretch):
-                        ram_flat[i * self.nstretch + j] = ram[j, i]
+                    for j in range(self.nosc):
+                        ram_flat[i * self.nosc + j] = ram[j, i]
                 frame_arr.tofile(files['ram'])
                 ram_flat.tofile(files['ram'])
         
@@ -361,8 +361,6 @@ def calc_ham_dip_ram(universe, frame):
     del E_and_bonds
         
     w = 3760.2 - (3541.7 * E) - (152677 * (E ** 2))
-    x = 0.19285 - (1.7261e-5 * w)
-    p = 1.6466 + (5.7692e-4 * w)
     mu = 0.1646 + (11.39 * E) + (63.41 * (E ** 2))
     
     if universe.fermi:
@@ -370,8 +368,12 @@ def calc_ham_dip_ram(universe, frame):
 
     if universe.model:
         w, mu = correct_map(universe, w, mu)
+        
+    x = 0.19285 - (1.7261e-5 * w)
+    p = 1.6466 + (5.7692e-4 * w)
     
-    dipole = mu[..., None] * x[..., None] * bonds
+    dipole = np.zeros((universe.nosc, 3), dtype=np.float32)
+    dipole[:universe.nstretch] = mu[..., None] * x[..., None] * bonds
     
     if 'sfg' in universe.calc_types:
         z = universe.oxygens.positions[:, universe.interface_axis]
@@ -383,14 +385,14 @@ def calc_ham_dip_ram(universe, frame):
         sfg_dipole = None
     
     if 'ram' in universe.calc_types:
-        raman = np.zeros((universe.nstretch, 6))
+        raman = np.zeros((universe.nosc, 6), dtype=np.float32)
         i = 0
         for j in range(3):
             for k in range(j, 3):
                 if j == k:
-                    raman[:, i] = 4.6 * x * (bonds[:, j] ** 2) + x
+                    raman[:universe.nstretch, i] = 4.6 * x * (bonds[:, j] ** 2) + x
                 else:
-                    raman[:, i] = 4.6 * x * bonds[:, j] * bonds[:, k]
+                    raman[:universe.nstretch, i] = 4.6 * x * bonds[:, j] * bonds[:, k]
                 i += 1
     else:
         raman = None
