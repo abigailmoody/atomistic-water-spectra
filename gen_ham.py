@@ -167,7 +167,8 @@ class Universe:
         
 
         self.output_files = {'ham':args.ham_file, 'dip':args.dip_file, 'sfg':args.sfg_file, 'ram':args.ram_file}
-        for key in self.output_files.keys():
+        all_keys = ['ham', 'dip', 'sfg', 'ram']
+        for key in all_keys:
             if not self.output_files[key]:
                 del self.output_files[key]
         self.calc_types = list(self.output_files.keys())
