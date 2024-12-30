@@ -263,7 +263,7 @@ class Universe:
             frame_blocks.append(list(range(block_start, block_start + block_size)))
         frame_blocks[-1] = list(range(frame_blocks[-1][0], self.end_frame))
         
-        files = {key:open(self.file_names[key], 'wb') for key in self.calc_types}
+        files = {key:open(self.output_files[key], 'wb') for key in self.calc_types}
         
         i = 0
         for block in frame_blocks:
