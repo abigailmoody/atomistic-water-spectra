@@ -155,7 +155,7 @@ class Universe:
             self.nosc += self.nres
 
         
-        self.res_len = len(waters.residues[0].atoms)
+        self.res_len = len(self.waters.residues[0].atoms)
         self.add_M = self.res_len == 3
         
         self.inter_ndx = np.meshgrid(np.arange(self.nstretch), np.arange(self.nstretch), indexing='ij')
