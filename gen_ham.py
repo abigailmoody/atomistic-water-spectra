@@ -131,6 +131,8 @@ class Universe:
         
         self.start_frame = args.start_frame
         self.end_frame = args.end_frame
+        if self.end_frame is None:
+            self.end_frame = len(self.universe.trajectory)
         
         self.waters = self.universe.select_atoms(f'resname {args.water_name}')
         
