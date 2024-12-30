@@ -503,7 +503,7 @@ def electric_field_vectors(universe):
     box = universe.universe.dimensions
     
     if universe.add_M:
-        oxy_pos = atom_pos[universe.universe.oxygens.indices]
+        oxy_pos = atom_pos[universe.oxygens.indices]
         OH1 = _minimum_image(h_pos[::2] - oxy_pos, box) * 0.128012065
         OH2 = _minimum_image(h_pos[1::2] - oxy_pos, box) * 0.128012065
         atom_pos[self.universe.oxygens.indices] = oxy_pos + OH1 + OH2
