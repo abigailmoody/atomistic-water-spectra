@@ -179,7 +179,6 @@ class Universe:
         self.dists = np.zeros((self.nstretch, self.natoms))
 
         print('Universe loaded!')
-        print(self.model)
         
         self.interface_axis = ['x', 'y', 'z'].index(args.interface_axis.lower())
     
