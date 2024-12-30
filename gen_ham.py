@@ -1,4 +1,4 @@
-# Last updated: 12/18/24
+# Last updated: 12/30/24
 
 # standard lib imports
 import argparse
@@ -198,6 +198,13 @@ class Universe:
                     atom.type = 'O'
                 elif atom.type == '2':
                     atom.type = 'H'
+        elif 'OT' in self.universe.atoms.types:
+            for atom in self.universe.atoms:
+                if atom.type == 'OT':
+                    atom.type = 'O'
+                elif atom.type == 'HT':
+                    atom.type = 'H'
+        
 
 
     def setup_delML(self, args):
