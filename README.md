@@ -20,3 +20,10 @@ Run the following command to see details of different options.
 ``` python gen_ham.py -h ```  
 
 For an overview of compatible file formats, see the [MDAnalysis Format overview](https://userguide.mdanalysis.org/stable/formats/index.html) page. 
+
+
+## Additional Notes
+
+Special thanks to Alexei Kananenka for providing the training data used in *J. Chem. Theory Comput.* **2019**, *15*, 6850–6858. 
+
+Updates are still being made to allow for OH stretch spectra from simulations containing water with other molecules rather than only neat water, to handle additional water models, and to handle additional simulation sources.
