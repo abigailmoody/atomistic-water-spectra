@@ -142,14 +142,14 @@ class Universe:
         self.nres = np.int32(len(self.waters.residues))
         self.nstretch = self.nres * 2
         self.nosc = self.nstretch
-        self.natoms = len(self.waters.atoms)
+        self.natoms = len(self.universe.atoms)
 
         if args.water_model == 'TIP3P':
              self.hydrogens.charges = np.full(self.nstretch, 0.52)
              self.oxygens.charges = np.full(self.nres, -1.04)
         
         self.atnums = self.universe.atoms.indices
-        self.charges = self.waters.atoms.charges
+        self.charges = self.universe.atoms.charges
         
         self.fermi = args.fermi
         
@@ -178,6 +178,8 @@ class Universe:
         self.model_file = args.model_file
         if self.model_file:
             self.setup_delML(args)
+        else:
+            self.model = None
         self.dists = np.zeros((self.nstretch, self.natoms))
 
         print('Universe loaded!')
@@ -389,7 +391,7 @@ def calc_ham_dip_ram(universe, frame):
         slab_center = np.mean(z)
         f_z = switching_function(z, slab_center)
         f_z = np.full((2, len(f_z)), f_z).reshape(universe.nstretch, order='F')
-        sfg_dipole = dipole * f_z
+        sfg_dipole = dipole * f_z[..., None]
     else:
         sfg_dipole = None
     
@@ -517,7 +519,7 @@ def electric_field_vectors(universe):
     dists[universe.dist_mask] = np.nan
     for i in range(universe.nstretch):
         within_cutoff = (dists[i] < (CUTOFF / a0)).nonzero()
-        j = np.reshape(universe.universe.atoms[within_cutoff].residues.indices, -1)
+        j = np.reshape(universe.universe.atoms[within_cutoff].residues.atoms.indices, -1)
         j = np.setdiff1d(universe.atnums, j)
         dists[i,j] = np.nan
  
