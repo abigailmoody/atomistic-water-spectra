@@ -278,7 +278,7 @@ class Universe:
                 clear_session() # Prevents memory leaks from Keras backend
                 self.model = load_model(self.model_file)
         
-        for f in files:
+        for f in files.values():
             f.close()
 
         return None
