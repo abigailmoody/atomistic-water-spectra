@@ -14,7 +14,7 @@ from MDAnalysis.analysis.distances import distance_array
 
 # Warning filters
 warnings.filterwarnings('ignore', '.*X does not have valid feature names, but StandardScaler was fitted with feature names.*')
-warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=408)
+warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=421)
 
 # Settings that should stay the same unless you've intentionally changed things
 CUTOFF = 7.831
@@ -134,7 +134,7 @@ class Universe:
         if self.end_frame is None:
             self.end_frame = len(self.universe.trajectory)
         
-        self.waters = self.universe.select_atoms(f'resname {args.water_name}')
+        self.waters = self.universe.select_atoms(args.water_selection)
         
         self.hydrogens = self.waters.select_atoms('type H')
         self.oxygens = self.waters.select_atoms('type O')
@@ -620,7 +620,7 @@ def main():
     parser.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
     parser.add_argument('--fermi', action='store_true', help='Turns on Fermi resonance with bend overtone')
     parser.add_argument('-w', '--water_model', default='TIP4P', metavar='{TIP4P, E3B2, TIP3P}', help='The water model used to run the simulation')
-    parser.add_argument('-wn', '--water_name', default='SOL', metavar='STR', help='The name given to water molecules in simulation files')
+    parser.add_argument('-ws', '--water_selection', default='all', type=str, metavar='STR', help='The name given to water molecules in simulation files')
     parser.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files and clearing the Tensorflow session')
     parser.add_argument('-m', '--model_file', default=None, metavar='FILENAME', help='Saved TensorFlow model for using ∆-ML spectroscopic maps', type=lambda x : None if x == 'None' else x)
     parser.add_argument('-x', '--x_scaler', default='x_scaler_long_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model inputs', type=lambda x : None if x == 'None' else x)
