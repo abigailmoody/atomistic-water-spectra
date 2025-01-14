@@ -9,6 +9,8 @@ Contains code to generate vibrational Hamiltonian, transition dipole, and transi
 4. Pieniazek, P. A.; Tainter, C. J.; Skinner, J. L. Surface of Liquid Water: Three-Body Interactions and Vibrational Sum-Frequency Spectroscopy. *J. Am. Chem. Soc.* **2011**, *133* (27), 10360–10363. [https://doi.org/10.1021/ja2026695.](https://doi.org/10.1021/ja2026695)
 5. Ni, Y.; Skinner, J. L. Communication: Vibrational Sum-Frequency Spectrum of the Air-Water Interface, Revisited. *J. Chem. Phys.* **2016**, *145* (3), 031103. [https://doi.org/10.1063/1.4958967.](https://doi.org/10.1063/1.4958967)
 6. Kananenka, A. A.; Yao, K.; Corcelli, S. A.; Skinner, J. L. Machine Learning for Vibrational Spectroscopic Maps. *J. Chem. Theory Comput.* **2019**, *15* (12), 6850–6858. [https://doi.org/10.1021/acs.jctc.9b00698.](https://doi.org/10.1021/acs.jctc.9b00698)
+#### Additional Citations
+7. Piskulich, Z. A.; Cui, Q. Hydrogen bonding blues: Vibrational spectroscopy of the TIP3P water model. *J. Chem. Phys.* **2025**, *161* (1), 014104. [https://doi.org/10.1063/5.0243509](https://doi.org/10.1063/5.0243509)
 
 
 
