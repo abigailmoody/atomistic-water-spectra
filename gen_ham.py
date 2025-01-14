@@ -1,5 +1,3 @@
-# Last updated: 12/30/24
-
 # standard lib imports
 import argparse
 import itertools
@@ -12,9 +10,12 @@ import numpy as np
 import MDAnalysis as mda
 from MDAnalysis.analysis.distances import distance_array
 
+# my lib import
+import spectra_code.spectroscopic_maps as maps
+
 # Warning filters
 warnings.filterwarnings('ignore', '.*X does not have valid feature names, but StandardScaler was fitted with feature names.*')
-warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=421)
+warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=455)
 
 # Settings that should stay the same unless you've intentionally changed things
 input_size = 306
@@ -33,7 +34,6 @@ hyd_g4_params = [[0.001, 4.0, -1.0], [0.001, 4.0, 1.0], [0.01, 4.0, -1.0],
                  [0.01, 4.0, 1.0], [0.03, 1.0, -1.0], [0.03, 1.0, 1.0],
                  [0.07, 1.0, -1.0], [0.07, 1.0, 1.0]] 
 acsf_cutoff = 12.
-
 
 # Constants
 a0 = 0.5291772
@@ -133,7 +133,10 @@ class Universe:
         if self.end_frame is None:
             self.end_frame = len(self.universe.trajectory)
         
-        self.waters = self.universe.select_atoms(args.water_selection)
+        water_sel = args.water_selection
+        if isinstance(water_sel, list):
+            water_sel = ' '.join(water_sel)
+        self.waters = self.universe.select_atoms(water_sel)
         
         self.hydrogens = self.waters.select_atoms('type H')
         self.oxygens = self.waters.select_atoms('type O')
@@ -147,7 +150,12 @@ class Universe:
             self.cutoff = 8.31
         else:
             self.cutoff = 7.831
-        self.setup_maps(args.water_model)
+        if args.water_model == 'TIP3P':
+            self.map_obj = maps.TIP3P_Map()
+        elif args.water_model == 'SPCE':
+            self.map_obj = maps.SPCE_Map()
+        else:
+            self.map_obj = maps.TIP4P_Map()
         
         self.atnums = self.universe.atoms.indices
         self.charges = self.universe.atoms.charges
@@ -245,29 +253,6 @@ class Universe:
         self.oxy_mask = (np.arange(self.nstretch), np.arange(self.nstretch) // 2)
         self.hyd_mask = (np.arange(self.nstretch), np.arange(self.nstretch).reshape(self.nres, 2)[:, ::-1].flatten())
 
-    def setup_maps(self, water_model):
-        if water_model == 'TIP3P':
-            # J. Chem. Phys. 2025, 162, 014104.
-            self.w_map = lambda E: 3742.81 - (4884.72 * E) - (65278.36 * (E**2))
-            self.mu_map = lambda E: 0.12 + (12.28 * E)
-            self.x_map = lambda w: (0.1019 - (9.0611e-6 * w)) / a0
-            # No map published for following, used TIP4P map
-            self.p_map = lambda w: 1.6466 + (5.7692e-4 * w)
-            self.intra_map = lambda Ei, Ej, xi, xj, pi, pk: ((-1361 + (27165 * (Ei + Ej))) * xi * xj) - (1.887 * pi * pj)
-        elif water_model == 'SPCE'
-            # J. Chem. Phys. 2008, 128, 224511.
-            self.w_map = lambda E: 3762 - (5060 * E) - (86225 * (E**2))
-            self.mu_map = lambda E: 0.7112 + (75.58 * E)
-            self.x_map = lambda w: 0.1934  - (1.75e-5 * w)
-            self.p_map = lambda w: 1.611 + (5.893e-4 * w)
-            self.intra_map = lambda Ei, Ej, xi, xj, pi, pk: ((-1789 + (23852 * (Ei + Ej))) * xi * xj) - (1.966 * pi * pj)
-        else: # TIP4P/E3B2
-            # J. Chem. Theory Comput. 2013, 9, 3109-3117.
-            self.w_map = lambda E: 3760.2 - (3541.7 * E) - (152677 * (E ** 2))
-            self.mu_map = lambda E: 0.1646 + (11.39 * E) + (63.41 * (E ** 2))
-            self.x_map = lambda w: 0.19285 - (1.7261e-5 * w)
-            self.p_map = lambda w: 1.6466 + (5.7692e-4 * w)
-            self.intra_map = lambda Ei, Ej, xi, xj, pi, pk: ((-1361 + (27165 * (Ei + Ej))) * xi * xj) - (1.887 * pi * pj)
 
     def run_calc(self, pool, block_size=None):
         """ Runs calculation of Hamiltonian, dipoles, and polarizabilities
@@ -395,8 +380,8 @@ def calc_ham_dip_ram(universe, frame):
     bonds = E_and_bonds[:, 2:]
     del E_and_bonds
         
-    w = universe.w_map(E)
-    mu = universe.mu_map(E)
+    w = universe.map_obj.w_map(E)
+    mu = universe.map_obj.mu_map(E)
     
     if universe.fermi:
         w_bend = 3132.78 + 6086.31 * E_bend
@@ -404,8 +389,8 @@ def calc_ham_dip_ram(universe, frame):
     if universe.model:
         w, mu = correct_map(universe, w, mu)
         
-    x = universe.x_map(w)
-    p = universe.p_map(w)
+    x = universe.map_obj.x_map(w)
+    p = universe.map_obj.p_map(w)
     
     dipole = np.zeros((universe.nosc, 3), dtype=np.float32)
     dipole[:universe.nstretch] = mu[..., None] * x[..., None] * bonds
@@ -449,7 +434,7 @@ def calc_ham_dip_ram(universe, frame):
         np.fill_diagonal(hamiltonian, w)
         
         i, j = universe.intra_ndx
-        intra = self.intra_map(E[i], E[j], x[i], x[j], p[i], p[j])
+        intra = universe.map_obj.intra_map(E[i], E[j], x[i], x[j], p[i], p[j])
         hamiltonian[i,j] = intra
         hamiltonian[j,i] = intra
         
@@ -626,6 +611,57 @@ def switching_function(z, slab_center=0.0, r_c=4.0):
             f_z = (2*r_c**3 + 3*r_c**2 * z_adj - z_adj**3)/(4*r_c**3)
     return f_z
 
+def define_TIP3P_maps():
+    def w_map(E):
+        w = 3742.81 - (4884.72 * E) - (65278.36 * (E**2))
+        return w
+    def mu_map(E):
+        mu = 0.12 + (12.28 * E)
+        return mu
+    def x_map(w):
+        x = (0.1019 - (9.0611e-6 * w)) / a0
+        return x
+    # No map published for following, used TIP4P map
+    def p_map(w):
+        p = 1.6466 + (5.7692e-4 * w)
+        return p
+    def intra_map(Ei, Ej, xi, xj, pi, pj):
+        intra = ((-1361 + (27165 * (Ei + Ej))) * xi * xj) - (1.887 * pi * pj)
+        return intra
+    return w_map, mu_map, x_map, p_map, intra_map 
+
+def define_SPCE_maps():
+    def w_map(E):
+        w = 3762 - (5060 * E) - (86225 * (E**2))
+        return w
+    def mu_map(E):
+        mu = 0.7112 + (75.58 * E)
+        return mu
+    def x_map(w):
+        x = 0.1934 - (1.75e-5 * w)
+        return x
+    def p_map(w):
+        p = 1.611 + (5.893e-4 * w)
+        return p
+    def intra_map(Ei, Ej, xi, xj, pi, pj):
+        intra = ((-1789 + (23852 * (Ei + Ej))) * xi * xj) - (1.966 * pi * pj)
+        return intra
+    return w_map, mu_map, x_map, p_map, intra_map 
+
+def define_TIP4P_maps():
+    def w_map(E):
+        w = 3760.2 - (3541.7 * E) - (152677 * (E ** 2))
+        return w
+    def mu_map(E):
+        mu = 0.1646 + (11.39 * E) + (63.41 * (E ** 2))
+        return mu
+    def x_map(w):
+        x = 0.19285 - (1.7261e-5 * w)
+        return x
+    def p_map(w):
+        p = 1.6466 + (5.7692e-4 * w)
+        return p
+
 def main():
     # Default on macOS and Windows but not on Linux
     set_start_method('spawn')
@@ -644,7 +680,7 @@ def main():
     parser.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
     parser.add_argument('--fermi', action='store_true', help='Turns on Fermi resonance with bend overtone')
     parser.add_argument('-w', '--water_model', default='TIP4P', metavar='{TIP4P, E3B2, TIP3P, SPCE}', help='The water model used to run the simulation')
-    parser.add_argument('-ws', '--water_selection', default='all', type=str, metavar='STR', help='The name given to water molecules in simulation files')
+    parser.add_argument('-ws', '--water_selection', default='all', metavar='STR', type=str, help='MDAnalysis selection string for the water molecule atoms', nargs='+')
     parser.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files and clearing the Tensorflow session')
     parser.add_argument('-m', '--model_file', default=None, metavar='FILENAME', help='Saved TensorFlow model for using ∆-ML spectroscopic maps', type=lambda x : None if x == 'None' else x)
     parser.add_argument('-x', '--x_scaler', default='x_scaler_long_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model inputs', type=lambda x : None if x == 'None' else x)
