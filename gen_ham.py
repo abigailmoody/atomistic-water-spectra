@@ -158,16 +158,16 @@ class Universe:
             self.map_obj = maps.TIP4P_Map()
         
         self.atnums = self.universe.atoms.indices
-        try:
-            self.charges = self.universe.atoms.charges
-        except:
+
+        if not hasattr(self.universe.atoms, 'charges'):
             if args.charges:
                 self.universe.add_TopologyAttr('charges')
                 for itp in args.charges:
                     self.add_charges_from_itp(itp)
             else:
                 raise Exception('No charge charge information available. Use -c or --charges to add charge information.')
-        
+        self.charges = self.universe.atoms.charges
+
         self.fermi = args.fermi
         
         if self.fermi:
@@ -227,7 +227,7 @@ class Universe:
                     atom.type = 'H'
         
     def add_charges_from_itp(self, itp_file):
-        mol = mda.Universe('itp_file')
+        mol = mda.Universe(itp_file)
         resname = mol.residues[0].resname
         sel = self.universe.select_atoms(f'resname {resname}').residues
         for res in sel:
