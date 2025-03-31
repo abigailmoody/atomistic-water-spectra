@@ -158,7 +158,15 @@ class Universe:
             self.map_obj = maps.TIP4P_Map()
         
         self.atnums = self.universe.atoms.indices
-        self.charges = self.universe.atoms.charges
+        try:
+            self.charges = self.universe.atoms.charges
+        except:
+            if args.charges:
+                self.universe.add_TopologyAttr('charges')
+                for itp in args.charges:
+                    self.add_charges_from_itp(itp)
+            else:
+                raise Exception('No charge charge information available. Use -c or --charges to add charge information.')
         
         self.fermi = args.fermi
         
@@ -218,6 +226,12 @@ class Universe:
                 elif atom.type == 'HT':
                     atom.type = 'H'
         
+    def add_charges_from_itp(self, itp_file):
+        mol = mda.Universe('itp_file')
+        resname = mol.residues[0].resname
+        sel = self.universe.select_atoms(f'resname {resname}').residues
+        for res in sel:
+            res.atoms.charges = mol.atoms.charges
 
 
     def setup_delML(self, args):
@@ -682,6 +696,7 @@ def main():
     system_group.add_argument('-w', '--water_model', default='TIP4P', metavar='{TIP4P, E3B2, TIP3P, SPCE}', help='The water model used to run the simulation')
     system_group.add_argument('-ws', '--water_selection', default='all', metavar='STR', type=str, help='MDAnalysis selection string for the water molecule atoms', nargs='+')
     system_group.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
+    system_group.add_argument('-c', '--charges', default=None, metavar='ITP_FILE', nargs='*',  help='.json file containing partial charges for each molecule')
     
     parallel_group = parser.add_argument_group('Parallelization settings')
     parallel_group.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
