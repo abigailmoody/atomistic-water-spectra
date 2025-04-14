@@ -397,8 +397,7 @@ def calc_ham_dip_ram(universe, frame):
     
     if 'sfg' in universe.calc_types:
         z = universe.oxygens.positions[:, universe.interface_axis]
-        slab_center = np.mean(z)
-        f_z = switching_function(z, slab_center)
+        f_z = switching_function(z, universe.universe.dimensions[universe.interface_axis])
         f_z = np.full((2, len(f_z)), f_z).reshape(universe.nstretch, order='F')
         sfg_dipole = dipole * f_z[..., None]
     else:
@@ -596,8 +595,11 @@ def correct_map(universe, w, mu):
  
     return w_corr, mu_corr
 
-def switching_function(z, slab_center=0.0, r_c=4.0):
-    z_adj = z - slab_center
+def switching_function(z, box, r_c=4.0,):
+    s = z / box
+    z_adj = box * (s - np.round(s))
+    slab_center = np.mean(z_adj)
+    z_adj -= slab_center
     if hasattr(z_adj, '__len__'):
         f_z = (2*r_c**3 + 3*r_c**2 * z_adj - z_adj**3)/(4*r_c**3)
         f_z = np.where(z_adj > r_c, 1.0, f_z)
