@@ -158,8 +158,16 @@ class Universe:
             self.map_obj = maps.TIP4P_Map()
         
         self.atnums = self.universe.atoms.indices
+
+        if not hasattr(self.universe.atoms, 'charges'):
+            if args.charges:
+                self.universe.add_TopologyAttr('charges')
+                for itp in args.charges:
+                    self.add_charges_from_itp(itp)
+            else:
+                raise Exception('No charge charge information available. Use -c or --charges to add charge information.')
         self.charges = self.universe.atoms.charges
-        
+
         self.fermi = args.fermi
         
         if self.fermi:
@@ -218,6 +226,12 @@ class Universe:
                 elif atom.type == 'HT':
                     atom.type = 'H'
         
+    def add_charges_from_itp(self, itp_file):
+        mol = mda.Universe(itp_file)
+        resname = mol.residues[0].resname
+        sel = self.universe.select_atoms(f'resname {resname}').residues
+        for res in sel:
+            res.atoms.charges = mol.atoms.charges
 
 
     def setup_delML(self, args):
@@ -670,25 +684,33 @@ def main():
 
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('-top', '--topology_file', required=True, metavar='FILENAME', help='Topology file for MD simulation containing water')
-    parser.add_argument('-trj', '--trajectory_file', metavar='FILENAME', help='Trajectory file for MD simulation containing water')
-    parser.add_argument('-s', '--start_frame', default=0, type=int, metavar='INT', help='The first frame of the trajectory to use')
-    parser.add_argument('-e', '--end_frame', default=None, type=int, metavar='INT', help='The final frame of the trajectory to use')
-    parser.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
-    parser.add_argument('-f', '--ham_file', default='hamil.bin', metavar='FILENAME', help='The output Hamiltonian trajectory', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-d', '--dip_file', default='dipole.bin', metavar='FILENAME', help='The output transition dipole trajectory', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-r', '--ram_file', default='raman.bin', metavar='FILENAME', help='The output transition polarizability trajectory', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-sfg', '--sfg_file', default=None, metavar='FILENAME', help='Transition dipole trajecotory scaled for calculating SFG spectra', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
-    parser.add_argument('--fermi', action='store_true', help='Turns on Fermi resonance with bend overtone')
-    parser.add_argument('-w', '--water_model', default='TIP4P', metavar='{TIP4P, E3B2, TIP3P, SPCE}', help='The water model used to run the simulation')
-    parser.add_argument('-ws', '--water_selection', default='all', metavar='STR', type=str, help='MDAnalysis selection string for the water molecule atoms', nargs='+')
-    parser.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files and clearing the Tensorflow session')
-    parser.add_argument('-m', '--model_file', default=None, metavar='FILENAME', help='Saved TensorFlow model for using ∆-ML spectroscopic maps', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-x', '--x_scaler', default='x_scaler_long_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model inputs', type=lambda x : None if x == 'None' else x)
-    parser.add_argument('-y', '--y_scaler', default='y_scaler_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model outputs', type=lambda x : None if x == 'None' else x)
-
+    file_group = parser.add_argument_group('Input and output files')
+    file_group.add_argument('-top', '--topology_file', required=True, metavar='FILENAME', help='Topology file for MD simulation containing water')
+    file_group.add_argument('-trj', '--trajectory_file', metavar='FILENAME', help='Trajectory file for MD simulation containing water')
+    file_group.add_argument('-f', '--ham_file', default='hamil.bin', metavar='FILENAME', help='The output Hamiltonian trajectory', type=lambda x : None if x == 'None' else x)
+    file_group.add_argument('-d', '--dip_file', default='dipole.bin', metavar='FILENAME', help='The output transition dipole trajectory', type=lambda x : None if x == 'None' else x)
+    file_group.add_argument('-r', '--ram_file', default='raman.bin', metavar='FILENAME', help='The output transition polarizability trajectory', type=lambda x : None if x == 'None' else x)
+    file_group.add_argument('-sfg', '--sfg_file', default=None, metavar='FILENAME', help='Transition dipole trajecotory scaled for calculating SFG spectra', type=lambda x : None if x == 'None' else x)
     
+    system_group = parser.add_argument_group('Settings for handling system specifics')
+    system_group.add_argument('-s', '--start_frame', default=0, type=int, metavar='INT', help='The first frame of the trajectory to use')
+    system_group.add_argument('-e', '--end_frame', default=None, type=int, metavar='INT', help='The final frame of the trajectory to use')
+    system_group.add_argument('-w', '--water_model', default='TIP4P', metavar='{TIP4P, E3B2, TIP3P, SPCE}', help='The water model used to run the simulation')
+    system_group.add_argument('-ws', '--water_selection', default='all', metavar='STR', type=str, help='MDAnalysis selection string for the water molecule atoms', nargs='+')
+    system_group.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
+    system_group.add_argument('-c', '--charges', default=None, metavar='ITP_FILE', nargs='*',  help='.json file containing partial charges for each molecule')
+    
+    parallel_group = parser.add_argument_group('Parallelization settings')
+    parallel_group.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
+    parallel_group.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files and clearing the Tensorflow session')
+    
+    delml_group = parser.add_argument_group('∆-ML map settings')
+    delml_group.add_argument('-m', '--model_file', default=None, metavar='FILENAME', help='Saved TensorFlow model for using ∆-ML spectroscopic maps', type=lambda x : None if x == 'None' else x)
+    delml_group.add_argument('-x', '--x_scaler', default='x_scaler_long_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model inputs', type=lambda x : None if x == 'None' else x)
+    delml_group.add_argument('-y', '--y_scaler', default='y_scaler_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model outputs', type=lambda x : None if x == 'None' else x)
+
+    parser.add_argument('--fermi', action='store_true', help='Turns on Fermi resonance with bend overtone')
+
     args = parser.parse_args()
     
     universe = Universe(args)
