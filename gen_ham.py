@@ -15,7 +15,7 @@ import spectra_code.spectroscopic_maps as maps
 
 # Warning filters
 warnings.filterwarnings('ignore', '.*X does not have valid feature names, but StandardScaler was fitted with feature names.*')
-warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=455)
+warnings.filterwarnings('ignore', category=RuntimeWarning, lineno=441) # Suppresses division by zero warning at line where it's expected to occur
 
 # Settings that should stay the same unless you've intentionally changed things
 input_size = 306
