@@ -202,6 +202,8 @@ class Universe:
         print('Universe loaded!')
         
         self.interface_axis = ['x', 'y', 'z'].index(args.interface_axis.lower())
+        self.periodic = args.periodic
+        self.switching_cutoff = args.switching_cutoff
     
     def correct_atom_types(self):
         """ Changes the atom types of universe from OPLS names to element names """
@@ -410,8 +412,17 @@ def calc_ham_dip_ram(universe, frame):
     dipole[:universe.nstretch] = mu[..., None] * x[..., None] * bonds
     
     if 'sfg' in universe.calc_types:
+        if universe.interface_axis == 0:
+            R = np.array([[0,0,-1],[0,1,0],[-1,0,0]])
+            bonds = np.einsum('ij,...j', R, bonds)
+        elif universe.interface_axis == 1:
+            R = np.array([[1,0,0],[0,0,1],[0,-1,0]])
+            bonds = np.einsum('ij,...j', R, bonds)
         z = universe.oxygens.positions[:, universe.interface_axis]
-        f_z = switching_function(z, universe.universe.dimensions[universe.interface_axis])
+        if universe.periodic:
+            f_z = switching_function(z, box=universe.universe.dimensions[universe.interface_axis], r_c=universe.switching_cutoff)
+        else:
+            f_z = switching_function(z, r_c=universe.switching_cutoff)
         f_z = np.full((2, len(f_z)), f_z).reshape(universe.nstretch, order='F')
         sfg_dipole = dipole * f_z[..., None]
     else:
@@ -609,9 +620,12 @@ def correct_map(universe, w, mu):
  
     return w_corr, mu_corr
 
-def switching_function(z, box, r_c=4.0,):
-    s = z / box
-    z_adj = box * (s - np.round(s))
+def switching_function(z, box=None, r_c=4.0):
+    if periodic:
+        s = z / box
+        z_adj = box * (s - np.round(s))
+    else:
+        z_adj = np.copy(z)
     slab_center = np.mean(z_adj)
     z_adj -= slab_center
     if hasattr(z_adj, '__len__'):
@@ -699,6 +713,7 @@ def main():
     system_group.add_argument('-ws', '--water_selection', default='all', metavar='STR', type=str, help='MDAnalysis selection string for the water molecule atoms', nargs='+')
     system_group.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
     system_group.add_argument('-c', '--charges', default=None, metavar='ITP_FILE', nargs='*',  help='.json file containing partial charges for each molecule')
+    system_group.add_argument('-p', '--periodic', action='store_true', help='Water slab falls across periodic boundary')
     
     parallel_group = parser.add_argument_group('Parallelization settings')
     parallel_group.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
@@ -710,6 +725,7 @@ def main():
     delml_group.add_argument('-y', '--y_scaler', default='y_scaler_acsf.pkl', metavar='FILENAME', help='Pickled scikit-learn scaler for scaling ∆-ML model outputs', type=lambda x : None if x == 'None' else x)
 
     parser.add_argument('--fermi', action='store_true', help='Turns on Fermi resonance with bend overtone')
+    parser.add_argument('-rc', '--switching_cutoff', type=float, metavar='FLOAT', help='Switching function R_c value in Å', default=4.0)
 
     args = parser.parse_args()
     
