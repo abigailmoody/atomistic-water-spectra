@@ -621,7 +621,7 @@ def correct_map(universe, w, mu):
     return w_corr, mu_corr
 
 def switching_function(z, box=None, r_c=4.0):
-    if periodic:
+    if box:
         s = z / box
         z_adj = box * (s - np.round(s))
     else:
