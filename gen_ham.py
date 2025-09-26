@@ -717,7 +717,7 @@ def main():
     
     parallel_group = parser.add_argument_group('Parallelization settings')
     parallel_group.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
-    parallel_group.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files and clearing the Tensorflow session')
+    parallel_group.add_argument('-b', '--block_size', default=None, type=int, metavar='INT', help='The number of frames to calculate between writing to output files; smaller values will decrease memory profile; should be ≥ n_procs')
     
     delml_group = parser.add_argument_group('∆-ML map settings')
     delml_group.add_argument('-m', '--model_file', default=None, metavar='FILENAME', help='Saved TensorFlow model for using ∆-ML spectroscopic maps', type=lambda x : None if x == 'None' else x)
