@@ -325,9 +325,9 @@ class Universe:
         for t in range(len(frames)):
             
             ham, dip, sfg, ram = results[t]
+            frame_arr = np.array([frames[t]], dtype='float32')
             
             if 'ham' in self.calc_types:
-                frame_arr = np.array([frames[t]], dtype='float32')
                 ham_flat = np.empty((int(self.nosc * (self.nosc + 1) / 2)), dtype='float32')
                 temp = 0
                 for i in range(self.nosc):
