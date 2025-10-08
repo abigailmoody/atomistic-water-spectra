@@ -184,6 +184,10 @@ class Universe:
         
         self.dist_mask = (np.arange(self.nstretch)[..., None], np.full((2, self.nres, self.res_len), self.waters.residues.indices).reshape(self.nstretch, self.res_len, order='F'))
         
+        exclude_sel = args.exclude_selection
+        if isinstance(exclude_sel, list):
+            exclude_sel = ' '.join(exclude_sel)
+        self.exclude_ndx = self.universe.select_atoms(exclude_sel).indices
 
         self.output_files = {'ham':args.ham_file, 'dip':args.dip_file, 'sfg':args.sfg_file, 'ram':args.ram_file}
         all_keys = ['ham', 'dip', 'sfg', 'ram']
@@ -550,6 +554,7 @@ def electric_field_vectors(universe):
     dists = distance_array(h_pos, atom_pos, box=box)
     universe.dists = np.copy(dists)
     dists[universe.dist_mask] = np.nan
+    dists[universe.exclude_ndx] = np.nan
     for i in range(universe.nstretch):
         within_cutoff = (dists[i] < (universe.cutoff / a0)).nonzero()
         j = np.reshape(universe.universe.atoms[within_cutoff].residues.atoms.indices, -1)
@@ -664,6 +669,7 @@ def main():
     system_group.add_argument('-i', '--interface_axis', default='z', metavar='{x, y, z}', help='Axis perpendicular to interface for interfacial simulations')
     system_group.add_argument('-c', '--charges', default=None, metavar='ITP_FILE', nargs='*',  help='.json file containing partial charges for each molecule')
     system_group.add_argument('-p', '--periodic', action='store_true', help='Water slab falls across periodic boundary')
+    system_group.add_argument('-es', '--exclude_selection', default=None, metavar='STR', type=str, help='MDAnalysis selection string to ignore when calculating electric field', nargs='+')
     
     parallel_group = parser.add_argument_group('Parallelization settings')
     parallel_group.add_argument('-n', '--n_procs', default=8, type=int, metavar='INT', help='The number of parallel processes to run')
