@@ -641,56 +641,6 @@ def switching_function(z, box=None, r_c=4.0):
             f_z = (2*r_c**3 + 3*r_c**2 * z_adj - z_adj**3)/(4*r_c**3)
     return f_z
 
-def define_TIP3P_maps():
-    def w_map(E):
-        w = 3742.81 - (4884.72 * E) - (65278.36 * (E**2))
-        return w
-    def mu_map(E):
-        mu = 0.12 + (12.28 * E)
-        return mu
-    def x_map(w):
-        x = (0.1019 - (9.0611e-6 * w)) / a0
-        return x
-    # No map published for following, used TIP4P map
-    def p_map(w):
-        p = 1.6466 + (5.7692e-4 * w)
-        return p
-    def intra_map(Ei, Ej, xi, xj, pi, pj):
-        intra = ((-1361 + (27165 * (Ei + Ej))) * xi * xj) - (1.887 * pi * pj)
-        return intra
-    return w_map, mu_map, x_map, p_map, intra_map 
-
-def define_SPCE_maps():
-    def w_map(E):
-        w = 3762 - (5060 * E) - (86225 * (E**2))
-        return w
-    def mu_map(E):
-        mu = 0.7112 + (75.58 * E)
-        return mu
-    def x_map(w):
-        x = 0.1934 - (1.75e-5 * w)
-        return x
-    def p_map(w):
-        p = 1.611 + (5.893e-4 * w)
-        return p
-    def intra_map(Ei, Ej, xi, xj, pi, pj):
-        intra = ((-1789 + (23852 * (Ei + Ej))) * xi * xj) - (1.966 * pi * pj)
-        return intra
-    return w_map, mu_map, x_map, p_map, intra_map 
-
-def define_TIP4P_maps():
-    def w_map(E):
-        w = 3760.2 - (3541.7 * E) - (152677 * (E ** 2))
-        return w
-    def mu_map(E):
-        mu = 0.1646 + (11.39 * E) + (63.41 * (E ** 2))
-        return mu
-    def x_map(w):
-        x = 0.19285 - (1.7261e-5 * w)
-        return x
-    def p_map(w):
-        p = 1.6466 + (5.7692e-4 * w)
-        return p
 
 def main():
     # Default on macOS and Windows but not on Linux
