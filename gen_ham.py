@@ -554,7 +554,7 @@ def electric_field_vectors(universe):
     dists = distance_array(h_pos, atom_pos, box=box)
     universe.dists = np.copy(dists)
     dists[universe.dist_mask] = np.nan
-    dists[universe.exclude_ndx] = np.nan
+    dists[:,universe.exclude_ndx] = np.nan
     for i in range(universe.nstretch):
         within_cutoff = (dists[i] < (universe.cutoff / a0)).nonzero()
         j = np.reshape(universe.universe.atoms[within_cutoff].residues.atoms.indices, -1)
