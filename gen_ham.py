@@ -52,23 +52,23 @@ class Universe:
     
     Attributes
     ----------
-    universe : MDAnlysis.Universe
-        Universe object containing atomistic water trajectory
+    universe : MDAnalysis.Universe
+        Universe object containing MD trajectory of water
     
+    waters : MDAnalysis.AtomGroup
+        AtomGroup containing the water molecules in self.universe
+
+    hydrogens : MDAnalysis.AtomGroup
+        AtomGroup containing all OH-stretch hydrogens
+        
+    oxygens : MDAnalysis.AtomGroup
+        AtomGroup containing all OH-stretch oxygens
+
     start_frame : int
         First frame of simulation to use
         
     end_frame : int
         Last frame of simulation to use
-    
-    atnums : np.array
-        Atom index of atoms in universe
-    
-    types : np.array
-        Atom types of atoms in universe
-    
-    charges : np.array
-        Charges of atoms in universe
     
     nres : int
         Number of molecules in trajectory
@@ -76,21 +76,33 @@ class Universe:
     nstretch : int
         Number of stretches in trajectory
     
+    nosc : int
+        Number of oscillators in trajectory (stretches + bends)
+    
     natoms : int
         Number of atoms in trajectory
+
+    cutoff : float
+        Electric field cutoff radius in Å
+        
+    map_obj : spectra_code.spectroscopic_maps.Spectroscopic_Map
+        Object for handling the choice of spectroscopic map
+    
+    atnums : np.array
+        Atom index of atoms in universe
+    
+    charges : np.array
+        Charges of atoms in universe
+    
+    fermi : bool
+        Whether to include Fermi resonance between OH stretch fundamental and HOH bend overtone
     
     res_len : int
-        Number of atoms in each molecule
+        Number of atoms in each water (accounts for >3-site water models)
     
     add_M : bool
         If True, TIP4P charge position must be calculated
         If False, TIP4P charge positions are included in trajectory
-    
-    hydrogens : MDAnalysis.AtomGroup
-        AtomGroup of the hydrogens in the trajectory
-    
-    oxygens : MDAnalysis.AtomGroup
-        AtomGroup of the oxygens in the trajectory
     
     inter_ndx : np.array
         Array of interatomic coupling indices
@@ -98,26 +110,40 @@ class Universe:
     intra_ndx: np.array
         Array of intramolecular coupling indices
     
+    fermi_ndx : np.array
+        Array of Fermi resonance coupling indices
+    
     dist_mask : np.array
         Array of indices to mask when calculating electric fields
     
-    ham_file : str
-        File name of the Hamiltonian output file
+    exclude_ndx : np.array
+        Array of indices to exclude when calculating electric fields
+        (in addition to masking done by self.dist_mask)
     
-    dip_file : str
-        File name of the transition dipole output file
+    output_files : dict{str:str}
+        Dictionary of output file names
     
-    sfg_dip_file : str
-        File name of the transition dipole output file with SFG switching function applied
+    calc_types : list[str]
+        List of outputs to calculate and save {'ham', 'dip', 'ram', 'sfg'}
     
-    ram_file : str
-        File name of the transition polarizability output file
+    model_file : {None, str}
+        If using ∆-ML map, path to the trained model
     
-    model : {None, predition_model}
+    model : {None, tensorflow.keras.Model}
         If using ∆-ML map, trained TensorFlow model
     
     dists : np.array
         Distance matrix for the atoms in simulation
+        
+    interface_axis : {0, 1, 2}
+        For SFG calculation dipoles, the axis along which to apply the switching function
+    
+    periodic : bool
+        If True, assume the water slab falls across the pbc when calculating SFG switching function
+        If False, assume the water slab does not fall across the pbc when calculating SFG switching function
+        
+    switching_cutoff : float
+        r_c value passed to SFG switching function
     """
     def __init__(self, args):
         
@@ -233,6 +259,13 @@ class Universe:
                     atom.type = 'H'
         
     def add_charges_from_itp(self, itp_file):
+        """ Reads in a .itp file to add atomic partial charges to self.Universe
+        
+        Parameters
+        ----------
+        itp_file : str
+            Path to the desired .itp file
+        """
         mol = mda.Universe(itp_file)
         resname = mol.residues[0].resname
         sel = self.universe.select_atoms(f'resname {resname}').residues
@@ -387,6 +420,9 @@ def calc_ham_dip_ram(universe, frame):
         
         dipole : np.array
             Array of transition dipoles
+        
+        sfg_dipole : np.array
+            Array of transition dipoles with SFG switching function applied
         
         raman : np.array
             Array of transition polarizabilities
@@ -596,6 +632,27 @@ def _minimum_image(position, box):
     return position
 
 def correct_map(universe, w, mu):
+    """ Apply ∆-ML correction the base TIP4P spectroscopic map
+    
+    Parameters
+    ----------
+    universe : Universe
+        Universe object, see above
+        
+    w : np.array
+        Array of frequencies to be corrected
+        
+    mu : np.array
+        Array of dipole derivatives to be corrected
+        
+    Returns
+    -------
+    w_corr : np.array
+        Corrected frequencies
+    
+    mu_corr : np.array
+        Corrected dipole derivatives
+    """
     if universe.add_M:
         universe.ase.positions = universe.waters.positions / a0
         dists = universe.dists[:, ::3]
@@ -626,6 +683,25 @@ def correct_map(universe, w, mu):
     return w_corr, mu_corr
 
 def switching_function(z, box=None, r_c=4.0):
+    """ Switching function to apply to dipoles for SFG spectra calculations
+    
+    Parameters
+    ----------
+    z : float or np.array
+        Cartesian coordinate values along the axis perpendicular to the interface
+    
+    box : float, optional
+        Length of periodic box along the z-axis
+        Only necessary when the water slab falls across the pbc along the target axis
+        
+    r_c : float, optional
+        Cutoff parameter, default is 4.0
+
+    Returns
+    -------
+    f_z : float or np.array
+        Switching function values corresponding to z
+    """
     if box:
         s = z / box
         z_adj = box * (s - np.round(s))

@@ -31,8 +31,20 @@ class Universe:
     
     Attributes
     ----------
-    universe : MDAnlysis.Universe
-        Universe object containing atomistic water trajectory
+    universe : MDAnalysis.Universe
+        Universe object containing MD trajectory
+    
+    waters : MDAnalysis.AtomGroup
+        AtomGroup containing the water molecules in self.universe
+    
+    alcohols : MDAnalysis.AtomGroup
+        AtomGroup containing non-water hydroxyl groups
+    
+    hydrogens : MDAnalysis.AtomGroup
+        AtomGroup containing all OH-stretch hydrogens
+        
+    oxygens : MDAnalysis.AtomGroup
+        AtomGroup containing all OH-stretch oxygens
     
     start_frame : int
         First frame of simulation to use
@@ -40,32 +52,36 @@ class Universe:
     end_frame : int
         Last frame of simulation to use
     
-    atnums : np.array
-        Atom index of atoms in universe
-    
-    types : np.array
-        Atom types of atoms in universe
-    
-    charges : np.array
-        Charges of atoms in universe
-    
     nwaters : int
         Number of water molecules molecules in trajectory
     
     nstretch : int
         Number of stretches in trajectory
     
+    nosc : int
+        Number of oscillators in trajectory
+        (alias for self.nstretch)
+    
     natoms : int
         Number of atoms in trajectory
+
+    cutoff : float
+        Electric field cutoff radius in Å
+
+    map_obj : spectra_code.spectroscopic_maps.Spectroscopic_Map
+        Object for handling the choice of spectroscopic map for water
     
+    al_map : spectra_code.spectroscopic_maps.Spectroscopic_Map
+        Object for handling the choice of spectroscopic map for non-water hydroxyl groups
+    
+    atnums : np.array
+        Atom index of atoms in universe
+    
+    charges : np.array
+        Charges of atoms in universe
+        
     res_len : int
-        Number of atoms in each molecule
-    
-    hydrogens : MDAnalysis.AtomGroup
-        AtomGroup of the hydrogens in the trajectory
-    
-    oxygens : MDAnalysis.AtomGroup
-        AtomGroup of the oxygens in the trajectory
+        Number of atoms in each water (accounts for >3-site water models)
     
     inter_ndx : np.array
         Array of interatomic coupling indices
@@ -76,20 +92,28 @@ class Universe:
     dist_mask : np.array
         Array of indices to mask when calculating electric fields
     
-    ham_file : str
-        File name of the Hamiltonian output file
+    exclude_ndx : np.array
+        Array of indices to exclude when calculating electric fields
+        (in addition to masking done by self.dist_mask)
     
-    dip_file : str
-        File name of the transition dipole output file
+    output_files : dict{str:str}
+        Dictionary of output file names
     
-    sfg_dip_file : str
-        File name of the transition dipole output file with SFG switching function applied
-    
-    ram_file : str
-        File name of the transition polarizability output file
+    calc_types : list[str]
+        List of outputs to calculate and save {'ham', 'dip', 'ram', 'sfg'}
     
     dists : np.array
         Distance matrix for the atoms in simulation
+        
+    interface_axis : {0, 1, 2}
+        For SFG calculation dipoles, the axis along which to apply the switching function
+    
+    periodic : bool
+        If True, assume the water slab falls across the pbc when calculating SFG switching function
+        If False, assume the water slab does not fall across the pbc when calculating SFG switching function
+        
+    switching_cutoff : float
+        r_c value passed to SFG switching function
     """
     def __init__(self, args):
         
@@ -211,6 +235,13 @@ class Universe:
                     atom.type = 'H'
         
     def add_charges_from_itp(self, itp_file):
+        """ Reads in a .itp file to add atomic partial charges to self.Universe
+        
+        Parameters
+        ----------
+        itp_file : str
+            Path to the desired .itp file
+        """
         mol = mda.Universe(itp_file)
         resname = mol.residues[0].resname
         sel = self.universe.select_atoms(f'resname {resname}').residues
@@ -329,6 +360,9 @@ def calc_ham_dip_ram(universe, frame):
         
         dipole : np.array
             Array of transition dipoles
+        
+        sfg_dipole : np.array
+            Array of transition dipoles with SFG switching function applied
         
         raman : np.array
             Array of transition polarizabilities
